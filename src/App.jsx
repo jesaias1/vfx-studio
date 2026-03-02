@@ -23,7 +23,8 @@ const DEFAULTS = {
   slitScan:{on:false,offset:30},
   invert:{on:false},
   posterize:{on:false,levels:4},
-  zoomPulse:{on:false,speed:2,amount:0.03},
+  pixelate:{on:false,size:8},
+  adjust:{brightness:100,contrast:100,saturate:100},
 };
 
 const PRESETS = {
@@ -418,11 +419,18 @@ export default function App(){
         ctx.putImageData(iD,0,0);
       }
 
-      /* 18) zoom pulse */
-      if(s.zoomPulse.on){
-        const pulse=1+Math.sin(timestamp*s.zoomPulse.speed*0.003)*s.zoomPulse.amount*(1+hit*2);
-        ctx.save();ctx.translate(W/2,H/2);ctx.scale(pulse,pulse);ctx.translate(-W/2,-H/2);
-        ctx.drawImage(canvas,0,0);ctx.restore();
+      /* 18) pixelate */
+      if(s.pixelate.on){
+        const ps=Math.max(2,Math.floor(s.pixelate.size+(hit*8)));
+        const tP=document.createElement('canvas');tP.width=Math.ceil(W/ps);tP.height=Math.ceil(H/ps);
+        const tPc=tP.getContext('2d');tPc.drawImage(canvas,0,0,tP.width,tP.height);
+        ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,W,H);ctx.drawImage(tP,0,0,W,H);ctx.imageSmoothingEnabled=true;
+      }
+
+      /* 19) image adjustments (brightness, contrast, saturation) */
+      if(s.adjust.brightness!==100||s.adjust.contrast!==100||s.adjust.saturate!==100){
+        ctx.save();ctx.filter=`brightness(${s.adjust.brightness}%) contrast(${s.adjust.contrast}%) saturate(${s.adjust.saturate}%)`;
+        ctx.drawImage(canvas,0,0);ctx.filter='none';ctx.restore();
       }
 
       /* save feedback buffer */
@@ -470,7 +478,8 @@ export default function App(){
       slitScan:{on:Math.random()>0.7,offset:Math.floor(r(5,40))},
       invert:{on:Math.random()>0.8},
       posterize:{on:Math.random()>0.7,levels:Math.floor(r(2,8))},
-      zoomPulse:{on:Math.random()>0.6,speed:r(1,5),amount:r(0.01,0.06)},
+      pixelate:{on:Math.random()>0.7,size:Math.floor(r(3,16))},
+      adjust:{brightness:Math.floor(r(70,130)),contrast:Math.floor(r(80,150)),saturate:Math.floor(r(50,150))},
     });
     setChaos(r(0,0.5));
     if(trailCanvasRef.current){trailCanvasRef.current.getContext('2d').clearRect(0,0,trailCanvasRef.current.width,trailCanvasRef.current.height);}
@@ -525,14 +534,14 @@ export default function App(){
   return(
     <div className="fixed inset-0 bg-[#0a0a0a] overflow-hidden" style={{fontFamily:'Courier New,monospace'}}>
       <video ref={videoRef} className="hidden" playsInline muted/>
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full"/>
+      <canvas ref={canvasRef} className="absolute inset-0" style={{width:'100%',height:'100%',objectFit:'contain'}}/>
       <div ref={fpsDisplayRef} className="fixed top-2 left-2 text-[10px] text-[#00ff88] bg-[#0a0a0acc] px-2 py-1 border border-[#222] z-50 backdrop-blur-sm">0 FPS</div>
       {recording&&<div className="fixed top-2 left-20 flex items-center gap-2 text-[10px] text-red-500 bg-[#0a0a0acc] px-2 py-1 border border-red-900 z-50"><span className="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse"/>REC</div>}
       <button onClick={()=>setPanelOpen(p=>!p)} className={`fixed z-50 border border-[#333] bg-[#0a0a0a] text-[#888] w-8 h-8 flex items-center justify-center text-sm cursor-pointer hover:text-[#00ff88] hover:border-[#00ff88] transition-colors ${isMobile?'bottom-2 right-2':'top-2 right-2'}`}>{panelOpen?'✕':'☰'}</button>
       <button onClick={flipCamera} className={`fixed z-50 border border-[#333] bg-[#0a0a0a] text-[#888] px-2 py-1 text-xs cursor-pointer hover:text-[#00ff88] hover:border-[#00ff88] transition-colors ${isMobile?'bottom-2 left-2':'top-2 right-12'}`}>⟲</button>
 
       {/*═══ PANEL ═══*/}
-      <div className={`fixed z-40 bg-[#080808f0] border-l border-[#1a1a1a] transition-transform duration-300 overflow-y-auto backdrop-blur-md ${isMobile?`bottom-0 left-0 right-0 border-t border-l-0 ${panelOpen?'translate-y-0':'translate-y-full'}`:`top-0 right-0 bottom-0 ${panelOpen?'translate-x-0':'translate-x-full'}`}`} style={{width:isMobile?'100%':'310px',maxHeight:isMobile?'70vh':'100vh'}}>
+      <div className={`fixed z-40 bg-[#080808f0] border-l border-[#1a1a1a] transition-transform duration-300 overflow-y-auto backdrop-blur-md ${isMobile?`bottom-0 left-0 right-0 border-t border-l-0 ${panelOpen?'translate-y-0':'translate-y-full'}`:`top-0 right-0 bottom-0 ${panelOpen?'translate-x-0':'translate-x-full'}`}`} style={{width:isMobile?'100%':'310px',maxHeight:isMobile?'50vh':'100vh'}}>
         <div className="p-3 pt-5">
           <div className="mb-3 flex items-center justify-between"><div><div className="text-[#00ff88] text-xs tracking-widest font-bold">VFX_STUDIO</div><div className="text-[#333] text-[8px] tracking-wider">v4 AUDIO REACTIVE</div></div></div>
 
@@ -590,6 +599,13 @@ export default function App(){
             <Toggle label="MOTION ONLY" on={fx.trails.motionOnly} onChange={v=>updateFx('trails','motionOnly',v)}/>
           </Section>
 
+          <Section id="adjust" title="IMAGE ADJUST" icon="☼">
+            <Slider label="BRIGHTNESS" value={fx.adjust.brightness} min={30} max={200} step={5} onChange={v=>updateFx('adjust','brightness',v)}/>
+            <Slider label="CONTRAST" value={fx.adjust.contrast} min={30} max={200} step={5} onChange={v=>updateFx('adjust','contrast',v)}/>
+            <Slider label="SATURATION" value={fx.adjust.saturate} min={0} max={200} step={5} onChange={v=>updateFx('adjust','saturate',v)}/>
+            <button onClick={()=>{updateFx('adjust','brightness',100);updateFx('adjust','contrast',100);updateFx('adjust','saturate',100);}} className="text-[8px] text-[#555] border border-[#222] px-2 py-0.5 cursor-pointer hover:text-[#00ff88] hover:border-[#00ff88] mt-0.5">RESET</button>
+          </Section>
+
           <Section id="stutter" title="FPS STUTTER" icon="⏱"><Toggle label="FRAME LIMITER" on={fx.stutter.on} onChange={v=>updateFx('stutter','on',v)}/><Slider label="TARGET FPS" value={fx.stutter.targetFps} min={2} max={30} step={1} onChange={v=>updateFx('stutter','targetFps',v)}/></Section>
 
           <Section id="feedback" title="DATAMOSH" icon="🌀">
@@ -628,7 +644,7 @@ export default function App(){
 
           <Section id="posterize" title="POSTERIZE" icon="▧"><Toggle label="POSTERIZE" on={fx.posterize.on} onChange={v=>updateFx('posterize','on',v)}/><Slider label="LEVELS" value={fx.posterize.levels} min={2} max={12} step={1} onChange={v=>updateFx('posterize','levels',v)}/></Section>
 
-          <Section id="zoompulse" title="ZOOM PULSE" icon="◉"><Toggle label="ZOOM PULSE" on={fx.zoomPulse.on} onChange={v=>updateFx('zoomPulse','on',v)}/><Slider label="SPEED" value={fx.zoomPulse.speed} min={0.5} max={8} step={0.5} onChange={v=>updateFx('zoomPulse','speed',v)}/><Slider label="AMOUNT" value={fx.zoomPulse.amount} min={0.005} max={0.1} step={0.005} onChange={v=>updateFx('zoomPulse','amount',v)}/></Section>
+          <Section id="pixelate" title="PIXELATE" icon="▩"><Toggle label="PIXELATE" on={fx.pixelate.on} onChange={v=>updateFx('pixelate','on',v)}/><Slider label="BLOCK SIZE" value={fx.pixelate.size} min={2} max={32} step={1} onChange={v=>updateFx('pixelate','size',v)}/></Section>
 
 
 
