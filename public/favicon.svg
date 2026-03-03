@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="8" fill="#0a0a0a"/>
+  <rect x="2" y="2" width="60" height="60" rx="6" fill="none" stroke="#00ff88" stroke-width="1.5" opacity="0.4"/>
+  <!-- Glitch bars -->
+  <rect x="8" y="14" width="48" height="2" fill="#ff00ff" opacity="0.3"/>
+  <rect x="12" y="44" width="40" height="1.5" fill="#00ffff" opacity="0.25"/>
+  <!-- VFX text -->
+  <text x="32" y="38" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="22" fill="#00ff88">VFX</text>
+  <!-- RGB shift ghost -->
+  <text x="33" y="38" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="22" fill="#ff00ff" opacity="0.25">VFX</text>
+  <text x="31" y="38" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="22" fill="#00ffff" opacity="0.2">VFX</text>
+  <!-- Scan line -->
+  <line x1="6" y1="50" x2="58" y2="50" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
+  <line x1="6" y1="52" x2="58" y2="52" stroke="#00ff88" stroke-width="0.3" opacity="0.15"/>
+</svg>

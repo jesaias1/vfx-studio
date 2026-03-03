@@ -24,6 +24,7 @@ const DEFAULTS = {
   invert:{on:false},
   posterize:{on:false,levels:4},
   pixelate:{on:false,size:8},
+  displace:{on:false,strength:30,smooth:true},
   adjust:{brightness:100,contrast:100,saturate:100},
 };
 
@@ -427,6 +428,35 @@ export default function App(){
         ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,W,H);ctx.drawImage(tP,0,0,W,H);ctx.imageSmoothingEnabled=true;
       }
 
+      /* 18b) DISPLACEMENT WARP — motion-driven pixel warping */
+      if(s.displace.on){
+        const str=(s.displace.strength+(hit*40))*(1+hit);
+        const iD=ctx.getImageData(0,0,W,H),src=new Uint8ClampedArray(iD.data),d=iD.data;
+        const scaleX=W/mW,scaleY=H/mH;
+        for(let y=1;y<H-1;y++){
+          const my=Math.floor(y/scaleY);
+          for(let x=1;x<W-1;x++){
+            const mx=Math.floor(x/scaleX);
+            const mi=clamp(my,0,mH-1)*mW+clamp(mx,0,mW-1);
+            const m=motionMask[mi]/255;
+            if(m<0.05)continue;
+            // displace in direction of motion velocity
+            const dvx=motionVX[mi]||0,dvy=motionVY[mi]||0;
+            const mag=Math.sqrt(dvx*dvx+dvy*dvy)+0.001;
+            const dx=Math.round((dvx/mag)*m*str);
+            const dy=Math.round((dvy/mag)*m*str);
+            const sx=clamp(x+dx,0,W-1),sy=clamp(y+dy,0,H-1);
+            const di=(y*W+x)*4,si=(sy*W+sx)*4;
+            // blend displaced pixel with original based on motion intensity
+            const blend=s.displace.smooth?clamp(m*2,0,1):1;
+            d[di]=src[di]*(1-blend)+src[si]*blend;
+            d[di+1]=src[di+1]*(1-blend)+src[si+1]*blend;
+            d[di+2]=src[di+2]*(1-blend)+src[si+2]*blend;
+          }
+        }
+        ctx.putImageData(iD,0,0);
+      }
+
       /* 19) image adjustments (brightness, contrast, saturation) */
       if(s.adjust.brightness!==100||s.adjust.contrast!==100||s.adjust.saturate!==100){
         ctx.save();ctx.filter=`brightness(${s.adjust.brightness}%) contrast(${s.adjust.contrast}%) saturate(${s.adjust.saturate}%)`;
@@ -479,6 +509,7 @@ export default function App(){
       invert:{on:Math.random()>0.8},
       posterize:{on:Math.random()>0.7,levels:Math.floor(r(2,8))},
       pixelate:{on:Math.random()>0.7,size:Math.floor(r(3,16))},
+      displace:{on:Math.random()>0.5,strength:Math.floor(r(10,60)),smooth:rb()},
       adjust:{brightness:Math.floor(r(70,130)),contrast:Math.floor(r(80,150)),saturate:Math.floor(r(50,150))},
     });
     setChaos(r(0,0.5));
@@ -645,6 +676,13 @@ export default function App(){
           <Section id="posterize" title="POSTERIZE" icon="▧"><Toggle label="POSTERIZE" on={fx.posterize.on} onChange={v=>updateFx('posterize','on',v)}/><Slider label="LEVELS" value={fx.posterize.levels} min={2} max={12} step={1} onChange={v=>updateFx('posterize','levels',v)}/></Section>
 
           <Section id="pixelate" title="PIXELATE" icon="▩"><Toggle label="PIXELATE" on={fx.pixelate.on} onChange={v=>updateFx('pixelate','on',v)}/><Slider label="BLOCK SIZE" value={fx.pixelate.size} min={2} max={32} step={1} onChange={v=>updateFx('pixelate','size',v)}/></Section>
+
+          <Section id="displace" title="⚡ DISPLACEMENT WARP" icon="🌀">
+            <Toggle label="DISPLACEMENT" on={fx.displace.on} onChange={v=>updateFx('displace','on',v)}/>
+            <Slider label="STRENGTH" value={fx.displace.strength} min={5} max={80} step={1} onChange={v=>updateFx('displace','strength',v)}/>
+            <Toggle label="SMOOTH BLEND" on={fx.displace.smooth} onChange={v=>updateFx('displace','smooth',v)}/>
+            <div className="text-[8px] text-[#444] mt-0.5">Pixels warp in the direction of motion</div>
+          </Section>
 
 
 
